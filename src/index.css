@@ -1,0 +1,122 @@
+body,
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #1a1b35;
+  font-family: "Noto Serif TC", serif;
+}
+
+/* 📱 手機優先：預設較小的字體與內距，並允許寬度彈性縮放 */
+.oriental-btn {
+  position: relative;
+  text-align: center;
+  cursor: pointer;
+  width: 100%;
+  max-width: 280px; /* 避免在極小螢幕爆開 */
+  border-radius: 9999px;
+  border: 4px solid #dcb562;
+  color: #4a2b16;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  padding: 0.75rem 2.5rem;
+  transition: all 0.3s;
+  background: radial-gradient(ellipse at center, #ffffff 0%, #fcedd8 100%);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3),
+    inset 0 0 15px rgba(220, 181, 98, 0.4);
+  text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.8);
+}
+
+/* 💻 電腦版：螢幕大於 768px 時，恢復華麗的大按鈕 */
+@media (min-width: 768px) {
+  .oriental-btn {
+    font-size: 1.875rem;
+    padding: 1rem 3.5rem;
+  }
+}
+
+.oriental-btn:hover {
+  border-color: #f3d482;
+  color: #2b1709;
+  transform: translateY(-4px) scale(1.05);
+  background: radial-gradient(ellipse at center, #ffffff 0%, #ffe6c2 100%);
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.4),
+    inset 0 0 20px rgba(220, 181, 98, 0.8);
+}
+.oriental-btn::before {
+  content: "🌸";
+  position: absolute;
+  left: 15px;
+  font-size: 1.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.8;
+}
+.oriental-btn::after {
+  content: "🌸";
+  position: absolute;
+  right: 15px;
+  font-size: 1.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.8;
+}
+.oriental-btn-inner {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  border: 1px solid rgba(220, 181, 98, 0.5);
+  border-radius: 9999px;
+  pointer-events: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #dcb562;
+  border-radius: 4px;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+@keyframes charFloat {
+  0%,
+  100% {
+    transform: translateY(0px) scale(1);
+    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3));
+  }
+  50% {
+    transform: translateY(-20px) scale(1.02);
+    filter: drop-shadow(0 25px 20px rgba(0, 0, 0, 0.2));
+  }
+}
+
+.animate-float-1 {
+  animation: float 6s ease-in-out infinite;
+}
+.animate-float-2 {
+  animation: float 6s ease-in-out infinite 1.5s;
+}
+.animate-float-3 {
+  animation: float 6s ease-in-out infinite 3s;
+}
+.animate-char-float {
+  animation: charFloat 5s ease-in-out infinite;
+}

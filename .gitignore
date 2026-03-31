@@ -1,0 +1,52 @@
+# ----------------------------------------------------------------------------
+# .gitignore for Vite + React + TypeScript Project
+# ----------------------------------------------------------------------------
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies (依賴套件)
+node_modules
+dist-tsc
+.pnp
+.pnp.js
+
+# Testing (測試報告)
+coverage
+.nyc_output
+
+# Production / Build Artifacts (打包結果與編譯快取)
+dist
+dist-ssr
+*.local
+
+# 💡 核心需求：忽略 TypeScript build info (避免每次編譯都產生不必要的 Git 變更)
+*.tsbuildinfo
+
+# Editor directories and files (編輯器設定)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Env files (環境變數：絕對不能上傳！)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vercel CLI (如果是用本機 Vercel CLI 測試產生的資料夾)
+.vercel
