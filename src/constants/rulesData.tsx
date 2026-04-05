@@ -125,6 +125,7 @@ const NewRulesTeamKO = () => (
         <h5 className="font-bold text-[#b8860b] mb-2">✎ 每場賽局結束</h5>
         <ol className="list-decimal list-inside ml-2 space-y-1">
           <li>根據該局結果淘汰第三名隊伍的上場成員，第一、二名隊伍成員留下</li>
+          <li>第二名隊伍可以自由選擇是否切換其他同隊選手上場</li>
           <li>第三名隊伍需推派下一位成員出場</li>
           <li>
             <span className="font-bold text-red-600">
