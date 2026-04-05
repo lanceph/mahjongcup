@@ -21,12 +21,26 @@ const getSeriesStandings = (series: MatchSeries, isFinals: boolean) => {
     }
   >();
 
-  // 1. 先用由 Sheet Parser 提供的高層級 groupNames 預先建立組別，保障尚未開打也能顯示看板
+  // 1. 初始建立組別，並從組名提取預設名單 [修改重點]
   if (series.groupNames) {
     series.groupNames.forEach((name) => {
+      const defaultPlayers = new Set<string>();
+      
+      // 使用 Regex 提取括號 ( ) 內容
+      // 支援 [組名 (選手A, 選手B)] 或 [組名（選手A、選手B）]
+      const match = name.match(/[\(\（](.*?)[\)\）]/);
+      if (match && match[1]) {
+        // 依照多種可能的逗號進行分割
+        const names = match[1].split(/[、,，\s]+/);
+        names.forEach(p => {
+          const trimmed = p.trim();
+          if (trimmed) defaultPlayers.add(trimmed);
+        });
+      }
+
       groupsMap.set(name, {
         groupName: name,
-        players: new Set(),
+        players: defaultPlayers, // 預填提取到的名單
         totalScore: 0,
         remaining: 0,
         hasPlayed: false,
@@ -34,7 +48,7 @@ const getSeriesStandings = (series: MatchSeries, isFinals: boolean) => {
     });
   }
 
-  // 2. 正常寫入賽局資料
+  // 2. 寫入實際賽局結果 (若有實際結果，會自動合併到 Set 中)
   series.games.forEach((game) => {
     game.groups.forEach((g) => {
       if (!g.groupName) return;
@@ -52,7 +66,7 @@ const getSeriesStandings = (series: MatchSeries, isFinals: boolean) => {
 
       g.results.forEach((r) => {
         if (r.playerName && r.playerName.trim() !== "") {
-          groupData.players.add(r.playerName);
+          groupData.players.add(r.playerName); // 若賽局已有登錄名單，也會加入
 
           if (r.scoreInfo && r.scoreInfo.trim() !== "") {
             groupData.hasPlayed = true;
@@ -69,18 +83,22 @@ const getSeriesStandings = (series: MatchSeries, isFinals: boolean) => {
   });
 
   const standings = Array.from(groupsMap.values())
-    .map((g) => ({
-      ...g,
-      players: Array.from(g.players),
-      displayScore: Math.round(g.totalScore * 10) / 10,
-    }))
-    // 改為確認有組別名稱即可顯示（即便沒有對應的 players）
+    .map((g) => {
+      // 新增：去除組別名稱中的括號與其內容 (支援全/半形括號)
+      // 例如 "第一組 (A, B)" 會變成 "第一組"
+      const cleanName = g.groupName.replace(/\s*[\(\（].*?[\)\）]\s*/g, '').trim();
+
+      return {
+        ...g,
+        displayGroupName: cleanName, // 供 UI 顯示的乾淨名稱
+        players: Array.from(g.players),
+        displayScore: Math.round(g.totalScore * 10) / 10,
+      };
+    })
     .filter((g) => g.groupName);
 
   standings.sort((a, b) => {
-    // 若完全沒打過，維持原始排序；若有成績才按分數排
     if (!a.hasPlayed && !b.hasPlayed) return 0;
-    
     if (!isFinals && b.remaining !== a.remaining) {
       return b.remaining - a.remaining;
     }
@@ -191,7 +209,8 @@ export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }
                         </span>
                         {winner && (
                           <span className="text-2xl text-[#dcb562] font-black tracking-widest bg-[#dcb562]/10 px-4 py-1 rounded-md border border-[#dcb562]/30 shadow-inner">
-                            {winner.groupName}
+                            {/* 💡 這裡改成 displayGroupName */}
+                            {winner.displayGroupName}
                           </span>
                         )}
                       </div>
@@ -206,7 +225,6 @@ export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }
                                 : "bg-white/5 border-white/10"
                             }`}
                           >
-                            {/* 未開局時不顯示 TOP 排行 */}
                             {isStarted && (
                               <div className={`absolute top-0 right-0 text-xs font-black px-3 py-1 rounded-bl-lg ${
                                 idx === 0 ? "bg-[#dcb562] text-[#1a1b35]" : "bg-gray-600 text-white"
@@ -216,7 +234,8 @@ export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }
                             )}
 
                             <div className="text-[#dcb562] font-black text-xl mb-1">
-                              {isFinals ? "決賽選手" : grp.groupName}
+                              {/* 💡 這裡改成 displayGroupName */}
+                              {isFinals ? "決賽選手" : grp.displayGroupName}
                             </div>
 
                             <div className="text-gray-300 text-sm mb-4">
