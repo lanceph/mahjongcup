@@ -136,6 +136,7 @@ const AVATAR_NAME_MAP: Record<string, string> = {
   美樂冰: "ice",
   窯烤雞肉君: "chicken",
   Z0neSky: "hong",
+  卡雷爹斯: "card"
 };
 
 // 💡 核心功能：根據中文名自動產生資源路徑
