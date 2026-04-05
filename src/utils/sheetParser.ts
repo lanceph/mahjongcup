@@ -51,9 +51,15 @@ const parseGroupStage = (
   return seriesStarts
     .map((startRow) => {
       const seriesId = getVal(grid, startRow, 0);
+
+      // 新增：提取該賽次的參賽組別名稱
+      const groupNames = [2, 6, 10]
+        .map((colOffset) => getVal(grid, startRow, colOffset))
+        .filter((name) => name && name.trim() !== "");
+
       const games = Array.from({ length: gameRowsCount })
         .map((_, gameIdx) => {
-          const r = startRow + 2 + gameIdx; // 場次從 offset + 2 開始
+          const r = startRow + 2 + gameIdx;
           const gameId = getVal(grid, r, 0);
           const magicCard = getVal(grid, r, 1);
 
@@ -62,11 +68,7 @@ const parseGroupStage = (
               const groupName = getVal(grid, startRow, colOffset);
               return {
                 groupName,
-                totalScore: getVal(
-                  grid,
-                  startRow + totalScoreRowOffset,
-                  colOffset + 1
-                ),
+                totalScore: getVal(grid, startRow + totalScoreRowOffset, colOffset + 1),
                 points: getVal(grid, startRow + pointsRowOffset, colOffset + 2),
                 results: [
                   {
@@ -75,7 +77,7 @@ const parseGroupStage = (
                     rank: getVal(grid, r, colOffset + 2),
                     remaining: getVal(grid, r, colOffset + 3),
                   },
-                ].filter((res) => res.playerName), // 過濾空資料
+                ].filter((res) => res.playerName), // 僅過濾有打過該場的結果
               };
             })
             .filter((g) => g.groupName);
@@ -84,7 +86,8 @@ const parseGroupStage = (
         })
         .filter((g) => g.gameId);
 
-      return { seriesId, games };
+      // 回傳時多夾帶 groupNames
+      return { seriesId, groupNames, games };
     })
     .filter((s) => s.seriesId);
 };
@@ -92,6 +95,12 @@ const parseGroupStage = (
 // 解析決賽邏輯 (格式不同)
 const parseFinals = (grid: string[][]) => {
   const seriesId = getVal(grid, 0, 0);
+  
+  // 新增：提取決賽選手名稱作為組別名
+  const groupNames = [2, 4, 6]
+    .map((colOffset) => getVal(grid, 0, colOffset))
+    .filter((name) => name && name.trim() !== "");
+
   const games = Array.from({ length: 3 })
     .map((_, gameIdx) => {
       const r = 2 + gameIdx;
@@ -120,7 +129,8 @@ const parseFinals = (grid: string[][]) => {
     })
     .filter((g) => g.gameId);
 
-  return [{ seriesId, games }];
+  // 回傳夾帶 groupNames
+  return [{ seriesId, groupNames, games }];
 };
 
 export const fetchAllSchedules = async (urls: {

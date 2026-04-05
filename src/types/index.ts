@@ -1,18 +1,3 @@
-export interface Player {
-  id: string | number;
-  name: string;
-  title: string;
-  desc: string;
-  avatar: string;
-  fullImg: string;
-}
-
-export interface TournamentData {
-  schedule: string;
-  rules: string;
-  players: Player[];
-}
-
 // src/types/index.ts
 export interface Player {
   id: string | number;
@@ -23,7 +8,6 @@ export interface Player {
   fullImg: string;
 }
 
-// --- 新增賽程相關型別 ---
 export interface PlayerMatchResult {
   playerName: string;
   scoreInfo: string;
@@ -46,6 +30,7 @@ export interface MatchGame {
 
 export interface MatchSeries {
   seriesId: string;
+  groupNames?: string[]; // 新增：用於提取並顯示對抗的組別名稱 (即使尚未有成績)
   games: MatchGame[];
 }
 
@@ -59,5 +44,5 @@ export interface TournamentData {
   schedule: string;
   rules: string;
   players: Player[];
-  scheduleData?: TournamentSchedule; // 綁定結構化賽程資料
+  scheduleData?: TournamentSchedule;
 }
