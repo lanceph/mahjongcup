@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from "react";
-import { Player } from "../types";
+import React, { useState, useEffect, useMemo } from "react";
+import { Player, TournamentSchedule } from "../types";
 
 interface PlayerModalProps {
   isOpen: boolean;
   onClose: () => void;
   players: Player[];
+  scheduleData?: TournamentSchedule; // 💡 新增傳入資料
 }
 
 export const PlayerModal: React.FC<PlayerModalProps> = ({
   isOpen,
   onClose,
   players,
+  scheduleData,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
 
@@ -21,10 +23,103 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
 
   const currentPlayer = players[selectedIndex];
 
-  useEffect(() => {
-    if (isOpen && currentPlayer) {
+  // 👑 新增核心：動態計算選手戰績
+  const currentPlayerStats = useMemo(() => {
+    if (!currentPlayer || !scheduleData) return null;
+
+    let gamesPlayed = 0;
+    let totalScore = 0;
+    let highestScore = -Infinity;
+    let lowestScore = Infinity;
+    const rankCounts = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    const magicCardStats: Record<string, { played: number; won: number }> = {};
+
+    // 遍歷所有階段賽事
+    const stages = [
+      scheduleData.stage1,
+      scheduleData.stage2,
+      scheduleData.finals,
+    ];
+
+    stages.forEach((stage) => {
+      if (!stage) return;
+      stage.forEach((series) => {
+        series.games.forEach((game) => {
+          game.groups.forEach((group) => {
+            group.results.forEach((result) => {
+              // 確認選手名稱相符
+              if (
+                result.playerName &&
+                result.playerName.includes(currentPlayer.name)
+              ) {
+                if (result.scoreInfo && result.scoreInfo.trim() !== "") {
+                  const score = parseFloat(result.scoreInfo) || 0;
+                  const rank = parseInt(result.rank, 10);
+
+                  gamesPlayed++;
+                  totalScore += score;
+                  if (score > highestScore) highestScore = score;
+                  if (score < lowestScore) lowestScore = score;
+                  if (rank >= 1 && rank <= 4) {
+                    rankCounts[rank as keyof typeof rankCounts]++;
+                  }
+                  if (game.magicCard && game.magicCard.trim() !== "") {
+                    // 過濾掉原本試算表或 parser 可能加入的 '✨' 與空白符號
+                    const cardName = game.magicCard.replace(
+                      /^[✨\s]+|[✨\s]+$/g,
+                      ""
+                    );
+
+                    if (!magicCardStats[cardName]) {
+                      magicCardStats[cardName] = { played: 0, won: 0 };
+                    }
+
+                    magicCardStats[cardName].played++;
+                    if (rank === 1) {
+                      // 勝率定義為拿 1 位的次數
+                      magicCardStats[cardName].won++;
+                    }
+                  }
+                }
+              }
+            });
+          });
+        });
+      });
+    });
+
+    if (gamesPlayed === 0) {
+      return {
+        gamesPlayed: 0,
+        totalScore: 0,
+        highestScore: 0,
+        lowestScore: 0,
+        rankCounts,
+        firstPlaceRate: "0.0",
+        topTwoRate: "0.0",
+        magicCardStats: {}, // 💡 [新增] 沒打過比賽就回傳空物件
+      };
     }
-  }, [currentPlayer, isOpen]);
+
+    const firstPlaceRate = ((rankCounts[1] / gamesPlayed) * 100).toFixed(1);
+    const topTwoRate = (
+      ((rankCounts[1] + rankCounts[2]) / gamesPlayed) *
+      100
+    ).toFixed(1);
+
+    return {
+      gamesPlayed,
+      totalScore: Math.round(totalScore * 10) / 10,
+      highestScore:
+        highestScore === -Infinity ? 0 : Math.round(highestScore * 10) / 10,
+      lowestScore:
+        lowestScore === Infinity ? 0 : Math.round(lowestScore * 10) / 10,
+      rankCounts,
+      firstPlaceRate,
+      topTwoRate,
+      magicCardStats,
+    };
+  }, [currentPlayer, scheduleData]);
 
   if (!isOpen || players.length === 0 || !currentPlayer) return null;
 
@@ -88,9 +183,121 @@ export const PlayerModal: React.FC<PlayerModalProps> = ({
                   [{currentPlayer.title}]
                 </span>
               </div>
-              <p className="text-gray-300 text-sm lg:text-lg leading-relaxed h-14 lg:h-20 overflow-y-auto pr-2 custom-scrollbar">
-                {currentPlayer.desc}
-              </p>
+
+              <div className="flex flex-col gap-2 max-h-[35vh] overflow-y-auto custom-scrollbar pr-2">
+                <p className="text-gray-300 text-sm lg:text-lg leading-relaxed shrink-0">
+                  {currentPlayer.desc}
+                </p>
+
+                {/* 👑 重構的戰績儀表板 */}
+                {currentPlayerStats && (
+                  <div className="mt-1 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 lg:gap-3 text-center text-xs lg:text-sm border-t border-[#dcb562]/30 pt-4 shrink-0">
+                    <div className="flex flex-col items-center bg-black/40 rounded-lg p-2 border border-white/5 shadow-md">
+                      <span className="text-gray-400 mb-1">出賽場次</span>
+                      <span className="text-[#dcb562] font-black text-lg lg:text-xl">
+                        {currentPlayerStats.gamesPlayed}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center bg-white/5 rounded p-1.5 border border-white/10 shadow-inner">
+                      <span className="text-gray-400 mb-0.5">總正負分</span>
+                      <span
+                        className={`font-black text-base ${
+                          currentPlayerStats.totalScore > 0
+                            ? "text-green-400"
+                            : currentPlayerStats.totalScore < 0
+                            ? "text-red-400"
+                            : "text-gray-400"
+                        }`}
+                      >
+                        {currentPlayerStats.totalScore > 0
+                          ? `+${currentPlayerStats.totalScore}`
+                          : currentPlayerStats.totalScore}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center bg-white/5 rounded p-1.5 border border-white/10 shadow-inner">
+                      <span className="text-gray-400 mb-0.5">最高分</span>
+                      <span className="text-green-400 font-black text-base">
+                        {currentPlayerStats.highestScore}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center bg-white/5 rounded p-1.5 border border-white/10 shadow-inner">
+                      <span className="text-gray-400 mb-0.5">最低分</span>
+                      <span className="text-red-400 font-black text-base">
+                        {currentPlayerStats.lowestScore}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center bg-white/5 rounded p-1.5 border border-white/10 shadow-inner">
+                      <span className="text-gray-400 mb-0.5">一位率</span>
+                      <span className="text-[#dcb562] font-black text-base">
+                        {currentPlayerStats.firstPlaceRate}%
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center bg-white/5 rounded p-1.5 border border-white/10 shadow-inner">
+                      <span className="text-gray-400 mb-0.5">生存率</span>
+                      <span className="text-[#dcb562] font-black text-base">
+                        {currentPlayerStats.topTwoRate}%
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center bg-black/40 rounded-lg p-2 border border-white/5 shadow-md col-span-2 sm:col-span-3 lg:col-span-2">
+                      <span className="text-gray-400 mb-1">
+                        名次分佈 (1位-3位)
+                      </span>
+                      <span className="text-[#dcb562] font-black text-lg lg:text-xl tracking-widest drop-shadow-md">
+                        {currentPlayerStats.rankCounts[1]} /{" "}
+                        {currentPlayerStats.rankCounts[2]} /{" "}
+                        {currentPlayerStats.rankCounts[3]}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {/* 👑 重構的魔法卡勝率區塊 */}
+                {currentPlayerStats &&
+                  Object.keys(currentPlayerStats.magicCardStats).length > 0 && (
+                    <div className="mt-2 flex flex-col gap-2 shrink-0 border-t border-[#dcb562]/30 pt-3">
+                      <span className="text-gray-300 text-xs lg:text-sm font-bold flex items-center gap-2">
+                        <span className="text-[#dcb562]">✦</span> 魔法卡勝率
+                        (1位次數/出賽) <span className="text-[#dcb562]">✦</span>
+                      </span>
+                      <div className="flex flex-wrap gap-2.5">
+                        {Object.entries(currentPlayerStats.magicCardStats)
+                          .sort((a, b) => b[1].played - a[1].played)
+                          .map(([card, stats]) => {
+                            const winRate = (
+                              (stats.won / stats.played) *
+                              100
+                            ).toFixed(0);
+                            return (
+                              <div
+                                key={card}
+                                className="flex items-center gap-2 bg-gradient-to-r from-purple-900/60 to-purple-800/40 border border-purple-500/40 rounded-md px-3 py-1.5 shadow-sm transition-transform hover:-translate-y-0.5"
+                              >
+                                <span
+                                  className="text-purple-100 text-xs lg:text-sm font-bold max-w-[120px] truncate drop-shadow-sm"
+                                  title={card}
+                                >
+                                  {card}
+                                </span>
+                                <div className="h-4 w-[1px] bg-purple-500/50 mx-0.5"></div>{" "}
+                                {/* 視覺分隔線 */}
+                                <span
+                                  className={`text-xs lg:text-sm font-black tracking-wide ${
+                                    stats.won > 0
+                                      ? "text-[#dcb562]"
+                                      : "text-gray-400"
+                                  }`}
+                                >
+                                  {winRate}%{" "}
+                                  <span className="text-[10px] lg:text-xs text-gray-400 font-normal ml-0.5">
+                                    ({stats.won}/{stats.played})
+                                  </span>
+                                </span>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+              </div>
             </div>
           </div>
 

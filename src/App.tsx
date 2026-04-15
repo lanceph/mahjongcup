@@ -78,6 +78,7 @@ const MainContent: React.FC = () => {
         isOpen={activeModal === "players"}
         onClose={() => setActiveModal("none")}
         players={data?.players || []}
+        scheduleData={data?.scheduleData} // 💡 新增這行：傳入賽局資料供統計使用
       />
 
       <ScheduleModal
