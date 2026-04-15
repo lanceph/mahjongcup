@@ -68,7 +68,11 @@ const parseGroupStage = (
               const groupName = getVal(grid, startRow, colOffset);
               return {
                 groupName,
-                totalScore: getVal(grid, startRow + totalScoreRowOffset, colOffset + 1),
+                totalScore: getVal(
+                  grid,
+                  startRow + totalScoreRowOffset,
+                  colOffset + 1
+                ),
                 points: getVal(grid, startRow + pointsRowOffset, colOffset + 2),
                 results: [
                   {
@@ -95,9 +99,10 @@ const parseGroupStage = (
 // 解析決賽邏輯 (格式不同)
 const parseFinals = (grid: string[][]) => {
   const seriesId = getVal(grid, 0, 0);
-  
-  // 新增：提取決賽選手名稱作為組別名
-  const groupNames = [2, 4, 6]
+
+  const playerCols = [2, 4, 6];
+
+  const groupNames = playerCols
     .map((colOffset) => getVal(grid, 0, colOffset))
     .filter((name) => name && name.trim() !== "");
 
@@ -107,20 +112,21 @@ const parseFinals = (grid: string[][]) => {
       const gameId = getVal(grid, r, 0);
       const magicCard = getVal(grid, r, 1);
 
-      const groups = [2, 4, 6]
+      const groups = playerCols
         .map((colOffset) => {
+          const name = getVal(grid, 0, colOffset); // 決賽名字在首列
           return {
-            groupName: getVal(grid, 0, colOffset),
-            totalScore: getVal(grid, 6, colOffset),
+            groupName: name,
+            totalScore: getVal(grid, 6, colOffset), // 總分列 (Row 6)
             points: "",
             results: [
               {
-                playerName: getVal(grid, 0, colOffset), // 決賽名字在頂部
+                playerName: name,
                 scoreInfo: getVal(grid, r, colOffset),
                 rank: getVal(grid, r, colOffset + 1),
                 remaining: "",
               },
-            ].filter((res) => res.scoreInfo),
+            ].filter((res) => res.playerName), // 💡 重要：改用 playerName 判定，確保沒分數時也能顯示名單
           };
         })
         .filter((g) => g.groupName);
@@ -129,7 +135,6 @@ const parseFinals = (grid: string[][]) => {
     })
     .filter((g) => g.gameId);
 
-  // 回傳夾帶 groupNames
   return [{ seriesId, groupNames, games }];
 };
 

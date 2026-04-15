@@ -25,17 +25,22 @@ const getSeriesStandings = (series: MatchSeries, isFinals: boolean) => {
   if (series.groupNames) {
     series.groupNames.forEach((name) => {
       const defaultPlayers = new Set<string>();
-      
-      // 使用 Regex 提取括號 ( ) 內容
-      // 支援 [組名 (選手A, 選手B)] 或 [組名（選手A、選手B）]
-      const match = name.match(/[\(\（](.*?)[\)\）]/);
-      if (match && match[1]) {
-        // 依照多種可能的逗號進行分割
-        const names = match[1].split(/[、,，\s]+/);
-        names.forEach(p => {
-          const trimmed = p.trim();
-          if (trimmed) defaultPlayers.add(trimmed);
-        });
+
+      if (isFinals) {
+        // 💡 修正：決賽時組名本身就是選手名，不須透過 Regex 提取
+        defaultPlayers.add(name);
+      } else {
+        // 使用 Regex 提取括號 ( ) 內容
+        // 支援 [組名 (選手A, 選手B)] 或 [組名（選手A、選手B）]
+        const match = name.match(/[\(\（](.*?)[\)\）]/);
+        if (match && match[1]) {
+          // 依照多種可能的逗號進行分割
+          const names = match[1].split(/[、,，\s]+/);
+          names.forEach((p) => {
+            const trimmed = p.trim();
+            if (trimmed) defaultPlayers.add(trimmed);
+          });
+        }
       }
 
       groupsMap.set(name, {
@@ -84,13 +89,13 @@ const getSeriesStandings = (series: MatchSeries, isFinals: boolean) => {
 
   const standings = Array.from(groupsMap.values())
     .map((g) => {
-      // 新增：去除組別名稱中的括號與其內容 (支援全/半形括號)
-      // 例如 "第一組 (A, B)" 會變成 "第一組"
-      const cleanName = g.groupName.replace(/\s*[\(\（].*?[\)\）]\s*/g, '').trim();
-
+      // 決賽組名無括號，replace 邏輯不會造成破壞
+      const cleanName = g.groupName
+        .replace(/\s*[\(\（].*?[\)\）]\s*/g, "")
+        .trim();
       return {
         ...g,
-        displayGroupName: cleanName, // 供 UI 顯示的乾淨名稱
+        displayGroupName: cleanName,
         players: Array.from(g.players),
         displayScore: Math.round(g.totalScore * 10) / 10,
       };
@@ -108,8 +113,14 @@ const getSeriesStandings = (series: MatchSeries, isFinals: boolean) => {
   return standings;
 };
 
-export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }) => {
-  const [activeTab, setActiveTab] = useState<"stage1" | "stage2" | "finals">("stage1");
+export const ScheduleModal: React.FC<Props> = ({
+  isOpen,
+  onClose,
+  scheduleData,
+}) => {
+  const [activeTab, setActiveTab] = useState<"stage1" | "stage2" | "finals">(
+    "stage1"
+  );
   const [filterName, setFilterName] = useState("");
 
   const isFinals = activeTab === "finals";
@@ -117,23 +128,27 @@ export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }
 
   const filteredSeries = useMemo(() => {
     if (!filterName) return currentData;
-    return currentData
-      .map((series) => {
-        // 過濾賽局
-        const filteredGames = series.games.filter((game) =>
-          game.groups.some((g) =>
-            g.results.some((r) => r.playerName.includes(filterName))
-          )
-        );
-        // 新增：如果搜尋字串符合「組別名稱」，也將此賽次保留下來
-        const matchGroupName = series.groupNames?.some((name) =>
-          name.includes(filterName)
-        );
+    return (
+      currentData
+        .map((series) => {
+          // 過濾賽局
+          const filteredGames = series.games.filter((game) =>
+            game.groups.some((g) =>
+              g.results.some((r) => r.playerName.includes(filterName))
+            )
+          );
+          // 新增：如果搜尋字串符合「組別名稱」，也將此賽次保留下來
+          const matchGroupName = series.groupNames?.some((name) =>
+            name.includes(filterName)
+          );
 
-        return { ...series, games: filteredGames, matchGroupName };
-      })
-      // 保留有符合對局的賽次，或者名稱符合的賽次
-      .filter((series) => series.games.length > 0 || (series as any).matchGroupName);
+          return { ...series, games: filteredGames, matchGroupName };
+        })
+        // 保留有符合對局的賽次，或者名稱符合的賽次
+        .filter(
+          (series) => series.games.length > 0 || (series as any).matchGroupName
+        )
+    );
   }, [currentData, filterName]);
 
   if (!isOpen) return null;
@@ -157,7 +172,11 @@ export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }
                     : "text-[#dcb562] border border-[#dcb562]/50 hover:bg-[#dcb562]/20"
                 }`}
               >
-                {tab === "stage1" ? "第一階段" : tab === "stage2" ? "第二階段" : "總決賽"}
+                {tab === "stage1"
+                  ? "第一階段"
+                  : tab === "stage2"
+                  ? "第二階段"
+                  : "總決賽"}
               </button>
             ))}
           </div>
@@ -185,10 +204,14 @@ export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }
               const standings = getSeriesStandings(series, isFinals);
               const isStarted = standings.some((g) => g.hasPlayed);
               // 沒開始的話，不特別高亮特定組別做 Winner
-              const winner = isStarted && standings.length > 0 ? standings[0] : null;
+              const winner =
+                isStarted && standings.length > 0 ? standings[0] : null;
 
               return (
-                <div key={sIdx} className="mb-10 bg-[#12132b]/80 p-5 rounded-xl border border-[#dcb562]/30 shadow-lg relative">
+                <div
+                  key={sIdx}
+                  className="mb-10 bg-[#12132b]/80 p-5 rounded-xl border border-[#dcb562]/30 shadow-lg relative"
+                >
                   {/* 賽次標題 */}
                   <div className="flex items-center gap-3 mb-6 border-b-2 border-[#dcb562]/50 pb-2">
                     <span className="text-3xl">⚔️</span>
@@ -201,11 +224,17 @@ export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }
                   {standings.length > 0 && (
                     <div className="mb-8 p-5 bg-[#0d0e20]/90 rounded-xl border border-[#dcb562]/40 shadow-[0_0_15px_rgba(220,181,98,0.1)] flex flex-col gap-4">
                       <div className="flex flex-wrap items-center gap-3 border-b border-white/10 pb-3">
-                        <span className="text-2xl animate-bounce">{isStarted ? "👑" : "🎯"}</span>
+                        <span className="text-2xl animate-bounce">
+                          {isStarted ? "👑" : "🎯"}
+                        </span>
                         <span className="text-lg text-white font-bold">
                           {isFinals
-                            ? isStarted ? "目前領先者：" : "參賽選手名單："
-                            : isStarted ? "目前領先組別：" : "對抗組別名單："}
+                            ? isStarted
+                              ? "目前領先者："
+                              : "參賽選手名單："
+                            : isStarted
+                            ? "目前領先組別："
+                            : "對抗組別名單："}
                         </span>
                         {winner && (
                           <span className="text-2xl text-[#dcb562] font-black tracking-widest bg-[#dcb562]/10 px-4 py-1 rounded-md border border-[#dcb562]/30 shadow-inner">
@@ -226,9 +255,13 @@ export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }
                             }`}
                           >
                             {isStarted && (
-                              <div className={`absolute top-0 right-0 text-xs font-black px-3 py-1 rounded-bl-lg ${
-                                idx === 0 ? "bg-[#dcb562] text-[#1a1b35]" : "bg-gray-600 text-white"
-                              }`}>
+                              <div
+                                className={`absolute top-0 right-0 text-xs font-black px-3 py-1 rounded-bl-lg ${
+                                  idx === 0
+                                    ? "bg-[#dcb562] text-[#1a1b35]"
+                                    : "bg-gray-600 text-white"
+                                }`}
+                              >
                                 TOP {idx + 1}
                               </div>
                             )}
@@ -246,7 +279,9 @@ export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }
                                 {grp.players.length > 0 ? (
                                   grp.players.join("、")
                                 ) : (
-                                  <span className="text-gray-500 text-xs font-normal italic">尚未登錄...</span>
+                                  <span className="text-gray-500 text-xs font-normal italic">
+                                    尚未登錄...
+                                  </span>
                                 )}
                               </div>
                             </div>
@@ -254,20 +289,41 @@ export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }
                             <div className="flex justify-between items-end border-t border-white/10 pt-3 mt-auto">
                               {!isFinals && (
                                 <div className="flex flex-col">
-                                  <span className="text-gray-400 text-xs font-bold mb-1">剩餘存活</span>
+                                  <span className="text-gray-400 text-xs font-bold mb-1">
+                                    剩餘存活
+                                  </span>
                                   <span className="text-blue-300 font-black text-2xl drop-shadow-md">
-                                    {grp.hasPlayed ? grp.remaining : "-"} <span className="text-sm font-normal">{grp.hasPlayed ? "人" : ""}</span>
+                                    {grp.hasPlayed ? grp.remaining : "-"}{" "}
+                                    <span className="text-sm font-normal">
+                                      {grp.hasPlayed ? "人" : ""}
+                                    </span>
                                   </span>
                                 </div>
                               )}
-                              <div className={`flex flex-col ${isFinals ? "w-full text-center" : "text-right"}`}>
-                                <span className="text-gray-400 text-xs font-bold mb-1">總正負分</span>
-                                <span className={`font-mono font-black text-2xl drop-shadow-md ${
-                                    !grp.hasPlayed ? "text-gray-500" :
-                                    grp.displayScore < 0 ? "text-red-400" :
-                                    grp.displayScore === 0 ? "text-gray-400" : "text-green-400"
-                                  }`}>
-                                  {!grp.hasPlayed ? "-" : (grp.displayScore > 0 ? `+${grp.displayScore}` : grp.displayScore)}
+                              <div
+                                className={`flex flex-col ${
+                                  isFinals ? "w-full text-center" : "text-right"
+                                }`}
+                              >
+                                <span className="text-gray-400 text-xs font-bold mb-1">
+                                  總正負分
+                                </span>
+                                <span
+                                  className={`font-mono font-black text-2xl drop-shadow-md ${
+                                    !grp.hasPlayed
+                                      ? "text-gray-500"
+                                      : grp.displayScore < 0
+                                      ? "text-red-400"
+                                      : grp.displayScore === 0
+                                      ? "text-gray-400"
+                                      : "text-green-400"
+                                  }`}
+                                >
+                                  {!grp.hasPlayed
+                                    ? "-"
+                                    : grp.displayScore > 0
+                                    ? `+${grp.displayScore}`
+                                    : grp.displayScore}
                                 </span>
                               </div>
                             </div>
@@ -284,39 +340,100 @@ export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }
                       {series.games.map((game, gIdx) => {
                         const matchPlayers = game.groups
                           .map((g) => g.results[0])
-                          .filter((p) => p && p.playerName && p.playerName.trim() !== "");
+                          .filter(
+                            (p) =>
+                              p && p.playerName && p.playerName.trim() !== ""
+                          );
 
                         if (matchPlayers.length === 0) return null;
 
                         return (
-                          <div key={gIdx} className="bg-[#1a1b35] rounded-xl border border-[#dcb562]/30 overflow-hidden flex flex-col shadow-md transition-transform hover:-translate-y-1 duration-300">
-                             {/* ... 保留原有每場賽局詳細名單的 RENDER ... */}
-                             <div className="bg-gradient-to-r from-[#dcb562]/30 to-transparent p-3 flex justify-between items-center border-b border-[#dcb562]/30">
+                          <div
+                            key={gIdx}
+                            className="bg-[#1a1b35] rounded-xl border border-[#dcb562]/30 overflow-hidden flex flex-col shadow-md transition-transform hover:-translate-y-1 duration-300"
+                          >
+                            {/* ... 保留原有每場賽局詳細名單的 RENDER ... */}
+                            <div className="bg-gradient-to-r from-[#dcb562]/30 to-transparent p-3 flex justify-between items-center border-b border-[#dcb562]/30">
                               <span className="text-[#dcb562] font-black text-xl tracking-wider drop-shadow-md">
                                 場次 {game.gameId}
                               </span>
-                              {game.magicCard && game.magicCard.trim() !== "" && (
-                                <span className="bg-purple-900 text-purple-100 text-sm px-3 py-1.5 rounded-md border border-purple-500 shadow-sm font-bold truncate max-w-[60%]">
-                                  ✨ {game.magicCard}
-                                </span>
-                              )}
+                              {game.magicCard &&
+                                game.magicCard.trim() !== "" && (
+                                  <span className="bg-purple-900 text-purple-100 text-sm px-3 py-1.5 rounded-md border border-purple-500 shadow-sm font-bold truncate max-w-[60%]">
+                                    ✨ {game.magicCard}
+                                  </span>
+                                )}
                             </div>
-                            <div className={`grid ${isFinals ? "grid-cols-10" : "grid-cols-12"} gap-2 px-4 py-2 bg-[#0d0e20] text-[#dcb562]/70 text-sm font-bold`}>
-                              <div className="col-span-5 text-left">選手姓名</div>
-                              <div className={`${isFinals ? "col-span-3" : "col-span-3"} text-right`}>終局正負分</div>
+                            <div
+                              className={`grid ${
+                                isFinals ? "grid-cols-10" : "grid-cols-12"
+                              } gap-2 px-4 py-2 bg-[#0d0e20] text-[#dcb562]/70 text-sm font-bold`}
+                            >
+                              <div className="col-span-5 text-left">
+                                選手姓名
+                              </div>
+                              <div
+                                className={`${
+                                  isFinals ? "col-span-3" : "col-span-3"
+                                } text-right`}
+                              >
+                                終局正負分
+                              </div>
                               <div className="col-span-2 text-center">名次</div>
-                              {!isFinals && <div className="col-span-2 text-center">剩餘人數</div>}
+                              {!isFinals && (
+                                <div className="col-span-2 text-center">
+                                  剩餘人數
+                                </div>
+                              )}
                             </div>
                             <div className="flex flex-col p-2 gap-1">
                               {matchPlayers.map((res, rIdx) => {
-                                const isTarget = filterName && res.playerName.includes(filterName);
-                                const isEliminated = !isFinals && (res.rank === "3" || res.remaining === "0");
+                                const isTarget =
+                                  filterName &&
+                                  res.playerName.includes(filterName);
+                                const isEliminated =
+                                  !isFinals &&
+                                  (res.rank === "3" || res.remaining === "0");
                                 return (
-                                  <div key={rIdx} className={`grid ${isFinals ? "grid-cols-10" : "grid-cols-12"} gap-2 items-center px-2 py-2.5 rounded-lg transition-colors ${isTarget ? "bg-[#dcb562]/20 border border-[#dcb562]/50" : "bg-transparent hover:bg-white/5"}`}>
-                                    <div className={`col-span-5 font-bold text-lg truncate ${isEliminated ? "text-gray-500 line-through" : "text-white"}`}>{res.playerName}</div>
-                                    <div className={`col-span-3 text-right font-mono text-lg font-black tracking-wider ${res.scoreInfo.includes("-") ? "text-red-400" : res.scoreInfo === "0" || !res.scoreInfo ? "text-gray-400" : "text-green-400"}`}>{res.scoreInfo}</div>
-                                    <div className="col-span-2 text-center text-yellow-500 font-black text-lg">{res.rank}</div>
-                                    {!isFinals && <div className="col-span-2 text-center text-blue-300 font-bold text-lg">{res.remaining}</div>}
+                                  <div
+                                    key={rIdx}
+                                    className={`grid ${
+                                      isFinals ? "grid-cols-10" : "grid-cols-12"
+                                    } gap-2 items-center px-2 py-2.5 rounded-lg transition-colors ${
+                                      isTarget
+                                        ? "bg-[#dcb562]/20 border border-[#dcb562]/50"
+                                        : "bg-transparent hover:bg-white/5"
+                                    }`}
+                                  >
+                                    <div
+                                      className={`col-span-5 font-bold text-lg truncate ${
+                                        isEliminated
+                                          ? "text-gray-500 line-through"
+                                          : "text-white"
+                                      }`}
+                                    >
+                                      {res.playerName}
+                                    </div>
+                                    <div
+                                      className={`col-span-3 text-right font-mono text-lg font-black tracking-wider ${
+                                        res.scoreInfo.includes("-")
+                                          ? "text-red-400"
+                                          : res.scoreInfo === "0" ||
+                                            !res.scoreInfo
+                                          ? "text-gray-400"
+                                          : "text-green-400"
+                                      }`}
+                                    >
+                                      {res.scoreInfo}
+                                    </div>
+                                    <div className="col-span-2 text-center text-yellow-500 font-black text-lg">
+                                      {res.rank}
+                                    </div>
+                                    {!isFinals && (
+                                      <div className="col-span-2 text-center text-blue-300 font-bold text-lg">
+                                        {res.remaining}
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -332,7 +449,10 @@ export const ScheduleModal: React.FC<Props> = ({ isOpen, onClose, scheduleData }
           )}
         </div>
 
-        <button onClick={onClose} className="absolute top-4 right-5 text-[#dcb562] hover:text-white text-4xl z-50 transition-transform hover:rotate-90">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-5 text-[#dcb562] hover:text-white text-4xl z-50 transition-transform hover:rotate-90"
+        >
           &times;
         </button>
       </div>
